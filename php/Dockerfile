@@ -55,8 +55,14 @@ server {
         try_files $uri $uri/ /index.php?$query_string;
     }
 
-    # 静态资源加缓存头(JS/CSS/lib/)
-    location ~* \.(js|mjs|css|ico)$ {
+    # 静态资源加缓存头(JS/CSS/lib/) + .mjs 类型修正
+    location ~* \.mjs$ {
+        # nginx 默认 mime.types 没 .mjs,会判 application/octet-stream → gzip 不生效
+        default_type application/javascript;
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+    location ~* \.(js|css|ico)$ {
         expires 7d;
         add_header Cache-Control "public, immutable";
     }
