@@ -1,42 +1,92 @@
-# Laravel 11 + PHP 8.3 minimal PDF.js demo
+# Laravel 11 + PHP 8.3-fpm + nginx minimal demo
+# 用 nginx + php-fpm 因为 `php artisan serve` 内置 server 不支持 HTTP Range header
 # build: docker build -t magazine-php-demo .
-# run:   docker run -p 8091:8091 -v $(pwd)/public/pdf:/app/public/pdf magazine-php-demo
-FROM php:8.3-cli-alpine
+# run:   docker run -p 8091:80 magazine-php-demo
+FROM php:8.3-fpm-alpine
 
 WORKDIR /app
 
-# 系统依赖(demo 不用 DB,只要 zip 给 composer 解 vendor)
-RUN apk add --no-cache libzip-dev git curl bash unzip \
+# 系统依赖 + nginx + supervisord(同时跑 nginx 和 php-fpm)
+RUN apk add --no-cache \
+    libzip-dev git curl bash unzip nginx supervisor \
     && docker-php-ext-install zip
 
 # composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# 1. 装一份 Laravel 11 骨架(framework + 默认 boilerplate)
+# Laravel 框架(create-project)
 RUN composer create-project laravel/laravel . "11.*" --prefer-dist --no-interaction \
-    && rm -rf .git .editorconfig phpunit.xml tests/
+    && rm -rf .git tests/
 
-# 2. 覆盖 — 我们的自定义文件
+# 我们的自定义文件
 COPY routes/web.php routes/web.php
 COPY app/Http/Controllers/PdfController.php app/Http/Controllers/PdfController.php
 COPY resources/views/viewer.blade.php resources/views/viewer.blade.php
-
-# 3. public/ 资源(PDF + 复制 viewer/ 的静态文件)
 COPY public/ public/
 
-# 4. 准备 storage 权限 + .env
+# Laravel 配置 + 权限
 RUN cp .env.example .env \
     && php artisan key:generate --force \
     && mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache \
     && chmod -R 777 storage bootstrap/cache \
-    # Demo 不用 DB:把 Laravel 11 默认 sqlite 配置改成不需要 DB 的 driver
     && sed -i 's|^SESSION_DRIVER=.*|SESSION_DRIVER=file|' .env \
     && sed -i 's|^CACHE_STORE=.*|CACHE_STORE=file|' .env \
     && sed -i 's|^QUEUE_CONNECTION=.*|QUEUE_CONNECTION=sync|' .env \
-    && sed -i 's|^DB_CONNECTION=.*|DB_CONNECTION=null|' .env 2>/dev/null || true \
     && php artisan config:clear
 
-EXPOSE 8091
+# nginx 配置(serve Laravel public/ + 反代 PHP-FPM)
+COPY <<'NGINX_CONF' /etc/nginx/http.d/default.conf
+server {
+    listen 80 default_server;
+    server_name _;
+    root /app/public;
+    index index.php index.html;
 
-# 用 Laravel 内置 server(demo 简洁,生产环境换 nginx+php-fpm)
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8091"]
+    # 静态文件直接 serve(包括 PDF — nginx 自带 Range 支持!)
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # PHP 走 php-fpm
+    location ~ \.php$ {
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    # 大 PDF 文件:nginx 静态 serve(自动支持 Range)
+    # public/pdf/*.pdf 直接由 nginx 处理,不走 PHP
+    client_max_body_size 100M;
+    sendfile on;
+    keepalive_timeout 65;
+}
+NGINX_CONF
+
+# supervisord 同时跑 nginx + php-fpm
+COPY <<'SUPERVISOR_CONF' /etc/supervisord.conf
+[supervisord]
+nodaemon=true
+logfile=/dev/stdout
+logfile_maxbytes=0
+
+[program:php-fpm]
+command=php-fpm -F
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+autorestart=true
+
+[program:nginx]
+command=nginx -g 'daemon off;'
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+autorestart=true
+SUPERVISOR_CONF
+
+EXPOSE 80
+
+CMD ["supervisord", "-c", "/etc/supervisord.conf"]

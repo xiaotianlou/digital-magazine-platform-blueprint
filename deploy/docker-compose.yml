@@ -7,11 +7,9 @@ services:
     container_name: magazine-php-demo
     restart: unless-stopped
     ports:
-      - "8091:8091"
-    # 不需要 volume,PDF 已 COPY 进 image
-    # 如果想热更 PDF,可挂载 ../php/public/pdf:/app/public/pdf
+      - "8091:80"   # 主机 8091 → 容器内 nginx :80
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8091/"]
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
       interval: 30s
       timeout: 5s
       retries: 3
