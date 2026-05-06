@@ -29,6 +29,9 @@ PHP(Laravel)+ Java(Spring Boot)双语言 working demo,部署在 [159.203.0.28](h
 | [docs/02-how-pdfjs-works.md](docs/02-how-pdfjs-works.md) | PDF.js + canvas + Range request 三件套原理 |
 | [docs/03-deployment.md](docs/03-deployment.md) | nginx 配置 + 后端必须的 routes(PHP/Java 两边都讲)|
 | [docs/04-faq.md](docs/04-faq.md) | 常见问题(Windows DPR 模糊、移动端、CORS 等)|
+| [docs/05-pitfalls.md](docs/05-pitfalls.md) | ⭐ **9 个工程坑实录**(部署本 demo 时实际撞过的)|
+| [docs/06-storage-proof.md](docs/06-storage-proof.md) | ⭐ **存储证明**:6 个角度证明真没存 jpg |
+| [tools/verify-no-jpg.sh](tools/verify-no-jpg.sh) | 一键运行所有证明,产出报告 |
 
 ## 仓库结构
 
