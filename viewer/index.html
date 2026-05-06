@@ -74,6 +74,19 @@
     <img alt="放大图">
   </div>
 
+  <!-- PDF.js 库失败兜底:5 秒内还没渲染就显示 banner -->
+  <script>
+    setTimeout(() => {
+      const anyRendered = document.querySelector('canvas.pdf-page[data-rendered="1"]');
+      if (!anyRendered) {
+        const banner = document.createElement('div');
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;padding:14px 22px;z-index:9999;font:14px sans-serif;text-align:center';
+        banner.innerHTML = '⚠️ PDF.js 库加载慢或失败(可能是 CDN 不通)。<a href="' +
+          (document.body.dataset.pdfUrl || '#') + '" target="_blank" style="color:#fff;text-decoration:underline">点这下载原 PDF</a> · <a href="javascript:location.reload()" style="color:#fff;text-decoration:underline">刷新重试</a>';
+        document.body.prepend(banner);
+      }
+    }, 15000);  // 15 秒还没任何页渲染成功 → 提示
+  </script>
   <script type="module" src="pdf-renderer.js"></script>
 </body>
 </html>
