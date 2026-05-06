@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title th:text="${pdfName} + ' — Spring Boot Demo'">PDF Demo</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body th:attr="data-pdf-url=${pdfUrl}">
   <div class="app">
@@ -43,6 +43,6 @@
     <img alt="放大图">
   </div>
 
-  <script type="module" src="/static/pdf-renderer.js"></script>
+  <script type="module" src="/pdf-renderer.js"></script>
 </body>
 </html>

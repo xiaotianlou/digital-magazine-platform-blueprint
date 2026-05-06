@@ -29,29 +29,20 @@ docker compose build --pull
 docker compose up -d
 EOF
 
-echo "=== [3/4] 部署 nginx 配置 ==="
-ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" bash <<EOF
-set -euo pipefail
-cp $REMOTE_DIR/deploy/nginx.conf /etc/nginx/sites-available/magazine-blueprint
-ln -sf /etc/nginx/sites-available/magazine-blueprint /etc/nginx/sites-enabled/magazine-blueprint
-nginx -t && systemctl reload nginx
-EOF
-
-echo "=== [4/4] 健康检查 ==="
+echo "=== [3/3] 健康检查 (直连端口,不走 nginx)==="
 sleep 8
 
-# 等容器起来
 for i in 1 2 3 4 5; do
-  PHP_CODE=\$(curl -s -o /dev/null -w "%{http_code}" "http://$REMOTE_HOST/demo-php/" || echo 0)
-  JAVA_CODE=\$(curl -s -o /dev/null -w "%{http_code}" "http://$REMOTE_HOST/demo-java/" || echo 0)
-  echo "  attempt \$i: PHP=\$PHP_CODE JAVA=\$JAVA_CODE"
-  [ "\$PHP_CODE" = "200" ] && [ "\$JAVA_CODE" = "200" ] && break
+  PHP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$REMOTE_HOST:8091/" || echo 0)
+  JAVA_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://$REMOTE_HOST:8092/" || echo 0)
+  echo "  attempt $i: PHP=$PHP_CODE JAVA=$JAVA_CODE"
+  [ "$PHP_CODE" = "200" ] && [ "$JAVA_CODE" = "200" ] && break
   sleep 6
 done
 
 echo
 echo "=== 部署完成 ==="
-echo "PHP demo:  http://$REMOTE_HOST/demo-php/"
-echo "Java demo: http://$REMOTE_HOST/demo-java/"
+echo "PHP demo:  http://$REMOTE_HOST:8091/"
+echo "Java demo: http://$REMOTE_HOST:8092/"
 echo
 echo "排错: ssh -i $SSH_KEY $REMOTE_USER@$REMOTE_HOST 'cd $REMOTE_DIR/deploy && docker compose logs -f'"
