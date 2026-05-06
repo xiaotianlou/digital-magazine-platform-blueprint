@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDF.js 客户端矢量渲染 demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-pdf-url="/pdf/chuanmei_2026_02.pdf">
+  <div class="app">
+    <header class="header">
+      <div>
+        <h1>📄 PDF.js 客户端矢量渲染</h1>
+        <div class="meta">中国传媒科技 2026 年第 2 期 · 164 页</div>
+      </div>
+      <div>
+        <span class="badge">PDF.js + canvas + Range</span>
+      </div>
+    </header>
+
+    <div class="intro">
+      <strong>这是什么:</strong>浏览器用 PDF.js 直接渲染原 PDF 到 <code>&lt;canvas&gt;</code>,
+      服务器只存 <code>source.pdf</code>(60 MB),不生成任何 jpg。每期省 ~70 MB 存储,放大无限清晰。
+      <br><br>
+      <strong>怎么验证:</strong>F12 → Network → 看 <code>chuanmei_2026_02.pdf</code> 状态码是
+      <code>206 Partial Content</code>,只下载视口需要的几 KB,不是一次拉 60 MB。
+    </div>
+
+    <div class="pages" id="pages">
+      <!-- 单页 canvas 占位,JS 按需 lazy 渲染 -->
+      <!-- pageNum 从 1 开始,要渲全部 164 页就生成 1..164 -->
+      <!-- 这里只示范前 8 页;真实部署应由后端模板循环生成 -->
+      <div class="page-block">
+        <div class="label">第 1 页</div>
+        <canvas class="pdf-page" data-page-num="1"></canvas>
+      </div>
+      <div class="page-block">
+        <div class="label">第 2 页</div>
+        <canvas class="pdf-page" data-page-num="2"></canvas>
+      </div>
+      <div class="page-block">
+        <div class="label">第 3 页</div>
+        <canvas class="pdf-page" data-page-num="3"></canvas>
+      </div>
+      <div class="page-block">
+        <div class="label">第 4 页</div>
+        <canvas class="pdf-page" data-page-num="4"></canvas>
+      </div>
+      <div class="page-block">
+        <div class="label">第 5 页</div>
+        <canvas class="pdf-page" data-page-num="5"></canvas>
+      </div>
+      <div class="page-block">
+        <div class="label">第 6 页</div>
+        <canvas class="pdf-page" data-page-num="6"></canvas>
+      </div>
+      <div class="page-block">
+        <div class="label">第 7 页</div>
+        <canvas class="pdf-page" data-page-num="7"></canvas>
+      </div>
+      <div class="page-block">
+        <div class="label">第 8 页</div>
+        <canvas class="pdf-page" data-page-num="8"></canvas>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <p>PDF.js 客户端矢量渲染 demo · 部署演示</p>
+      <p><a href="https://github.com/xiaotianlou/digital-magazine-platform-blueprint" target="_blank">仓库地址</a></p>
+    </footer>
+  </div>
+
+  <div class="img-modal" id="imgModal" onclick="this.classList.remove('show')">
+    <img alt="放大图">
+  </div>
+
+  <script type="module" src="pdf-renderer.js"></script>
+</body>
+</html>

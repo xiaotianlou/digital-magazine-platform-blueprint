@@ -1,0 +1,19 @@
+server:
+  port: 8092
+  # 启用 HTTP Range request(默认就开;显式标记)
+  tomcat:
+    accept-count: 100
+    max-connections: 200
+
+spring:
+  application:
+    name: pdf-canvas-demo
+  thymeleaf:
+    cache: false  # demo 阶段关缓存便于改 HTML 即时生效
+  web:
+    resources:
+      # /static/** 自动映射到 classpath:/static/(放 pdf-renderer.js + styles.css)
+      static-locations: classpath:/static/
+      cache:
+        cachecontrol:
+          max-age: 3600

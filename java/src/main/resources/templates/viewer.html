@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:text="${pdfName} + ' — Spring Boot Demo'">PDF Demo</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body th:attr="data-pdf-url=${pdfUrl}">
+  <div class="app">
+    <header class="header">
+      <div>
+        <h1>📄 <span th:text="${pdfName}">PDF 标题</span></h1>
+        <div class="meta"><span th:text="${pageCount}">N</span> 页 · Spring Boot 3.4 + Java 17 · PDF.js 矢量渲染</div>
+      </div>
+      <div>
+        <span class="badge">Spring Boot</span>
+      </div>
+    </header>
+
+    <div class="intro">
+      <strong>验证 Range request:</strong> F12 → Network → 看 PDF 请求是
+      <code>206 Partial Content</code>(不是 200),只下载视口需要的几 KB。
+      <br><br>
+      <strong>验证省存储:</strong> 服务器 <code>jar tvf pdfdemo-1.0.0.jar | grep pdf</code> 只有 1 个 PDF,
+      没有任何 page jpg。
+    </div>
+
+    <div class="pages">
+      <div class="page-block" th:each="i : ${#numbers.sequence(1, pageCount)}">
+        <div class="label">第 <span th:text="${i}">N</span> 页</div>
+        <canvas class="pdf-page" th:attr="data-page-num=${i}"></canvas>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <p>Spring Boot + PDF.js demo · 不存 jpg,矢量精度</p>
+      <p><a href="https://github.com/xiaotianlou/digital-magazine-platform-blueprint" target="_blank">仓库地址</a></p>
+    </footer>
+  </div>
+
+  <div class="img-modal" id="imgModal" onclick="this.classList.remove('show')">
+    <img alt="放大图">
+  </div>
+
+  <script type="module" src="/static/pdf-renderer.js"></script>
+</body>
+</html>
