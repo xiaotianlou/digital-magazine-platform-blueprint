@@ -16,8 +16,8 @@ PHP(Laravel)+ Java(Spring Boot)双语言 working demo,部署在 [159.203.0.28](h
 
 | 入口 | 说明 |
 |---|---|
-| [http://159.203.0.28/demo-php](http://159.203.0.28/demo-php) | Laravel 11 demo |
-| [http://159.203.0.28/demo-java](http://159.203.0.28/demo-java) | Spring Boot 3.4 demo |
+| [http://159.203.0.28:8091](http://159.203.0.28:8091) | Laravel 11 demo (nginx + php-fpm) |
+| [http://159.203.0.28:8092](http://159.203.0.28:8092) | Spring Boot 3.4 demo |
 
 两个 demo 显示同一份《中国传媒科技》2026 年第 2 期(60 MB,164 页)。
 
