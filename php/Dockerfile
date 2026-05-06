@@ -5,9 +5,9 @@ FROM php:8.3-cli-alpine
 
 WORKDIR /app
 
-# 系统依赖
+# 系统依赖(demo 不用 DB,只要 zip 给 composer 解 vendor)
 RUN apk add --no-cache libzip-dev git curl bash unzip \
-    && docker-php-ext-install zip pdo_sqlite
+    && docker-php-ext-install zip
 
 # composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -29,6 +29,11 @@ RUN cp .env.example .env \
     && php artisan key:generate --force \
     && mkdir -p storage/framework/{cache,sessions,views} bootstrap/cache \
     && chmod -R 777 storage bootstrap/cache \
+    # Demo 不用 DB:把 Laravel 11 默认 sqlite 配置改成不需要 DB 的 driver
+    && sed -i 's|^SESSION_DRIVER=.*|SESSION_DRIVER=file|' .env \
+    && sed -i 's|^CACHE_STORE=.*|CACHE_STORE=file|' .env \
+    && sed -i 's|^QUEUE_CONNECTION=.*|QUEUE_CONNECTION=sync|' .env \
+    && sed -i 's|^DB_CONNECTION=.*|DB_CONNECTION=null|' .env 2>/dev/null || true \
     && php artisan config:clear
 
 EXPOSE 8091
