@@ -34,8 +34,16 @@ RUN cp .env.example .env \
     && sed -i 's|^QUEUE_CONNECTION=.*|QUEUE_CONNECTION=sync|' .env \
     && php artisan config:clear
 
-# nginx 配置(serve Laravel public/ + 反代 PHP-FPM)
+# nginx 配置(serve Laravel public/ + 反代 PHP-FPM + gzip 优化)
 COPY <<'NGINX_CONF' /etc/nginx/http.d/default.conf
+# gzip 压缩 — JS/CSS 减 60%,国内网速关键
+gzip on;
+gzip_vary on;
+gzip_min_length 1024;
+gzip_comp_level 6;
+gzip_types text/plain text/css text/javascript application/javascript application/json application/x-javascript application/xml application/wasm;
+# ⚠️ PDF 不在 gzip_types 里 — 已经压缩过的不要再 gzip(浪费 CPU 还可能搞坏 Range)
+
 server {
     listen 80 default_server;
     server_name _;
@@ -47,6 +55,12 @@ server {
         try_files $uri $uri/ /index.php?$query_string;
     }
 
+    # 静态资源加缓存头(JS/CSS/lib/)
+    location ~* \.(js|mjs|css|ico)$ {
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+
     # PHP 走 php-fpm
     location ~ \.php$ {
         fastcgi_pass 127.0.0.1:9000;
@@ -56,7 +70,6 @@ server {
     }
 
     # 大 PDF 文件:nginx 静态 serve(自动支持 Range)
-    # public/pdf/*.pdf 直接由 nginx 处理,不走 PHP
     client_max_body_size 100M;
     sendfile on;
     keepalive_timeout 65;

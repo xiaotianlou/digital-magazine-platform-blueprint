@@ -20,9 +20,11 @@
  *   - 单页渲染失败 → 该 canvas 显示提示,其他页继续
  */
 
-import * as pdfjs from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs';
+// 本地 host PDF.js 库(去掉 CDN 依赖,国内网速友好)
+// 用相对路径 + import.meta.url,让 PHP/Java 两个 demo 都能找到自己的 lib/ 目录
+import * as pdfjs from './lib/pdf.min.mjs';
 pdfjs.GlobalWorkerOptions.workerSrc =
-  'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+  new URL('./lib/pdf.worker.min.mjs', import.meta.url).href;
 
 // 全局错误展示
 function showGlobalError(msg, pdfUrl) {
