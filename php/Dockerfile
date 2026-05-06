@@ -37,8 +37,7 @@ RUN cp .env.example .env \
 # nginx 配置(serve Laravel public/ + 反代 PHP-FPM + gzip 优化)
 COPY <<'NGINX_CONF' /etc/nginx/http.d/default.conf
 # gzip 压缩 — JS/CSS 减 60%,国内网速关键
-gzip on;
-gzip_vary on;
+# 注意:Alpine nginx main config 默认已 enable gzip + gzip_vary,这里只补 types
 gzip_min_length 1024;
 gzip_comp_level 6;
 gzip_types text/plain text/css text/javascript application/javascript application/json application/x-javascript application/xml application/wasm;
