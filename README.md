@@ -18,11 +18,9 @@ PHP(Laravel)+ Java(Spring Boot)双语言 working demo,部署在 [159.203.0.28](h
 |---|---|
 | [http://159.203.0.28:8091](http://159.203.0.28:8091) | Laravel 11 demo (nginx + php-fpm,海外节点)|
 | [http://159.203.0.28:8092](http://159.203.0.28:8092) | Spring Boot 3.4 demo (海外节点)|
-| 🇨🇳 国内低延迟 Tailscale 部署 | 见 [`deploy-lxf-windows-local/`](./deploy-lxf-windows-local/) — 把 demo 跑在国内 Windows 内网机,同事 < 30ms 直连 |
+| 🪟 Windows 本地启动 | 见 [`deploy-windows-local/`](./deploy-windows-local/) — `mvn package` + `java -jar` 自己机器跑 |
 
 两个 demo 显示同一份《中国传媒科技》2026 年第 2 期(60 MB,164 页)。
-
-> 海外节点(159)对国内访问首次加载约 30 秒;国内 Windows 部署 < 5 秒。
 
 ---
 
@@ -190,7 +188,7 @@ bash tools/verify-no-growth.sh   # 前后快照对比
 ├── php/          Laravel 11 最小 demo
 ├── java/         Spring Boot 3.4 最小 demo
 ├── deploy/       docker-compose + nginx 配置(海外服务器)
-├── deploy-lxf-windows-local/  ⭐ 🇨🇳 国内 Windows + Tailscale 低延迟部署
+├── deploy-windows-local/  Windows 本地启动指南(mvn build + java -jar)
 └── tools/        证明脚本(verify-no-jpg / verify-no-growth)
 ```
 

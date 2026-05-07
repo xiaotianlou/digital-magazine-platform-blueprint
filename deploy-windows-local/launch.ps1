@@ -9,7 +9,6 @@
 #   - 当前目录有 pdfdemo.jar
 #   - Java 17+ 已装 (java -version 能跑)
 #   - 已加 Windows Defender ExclusionPath(否则启动巨慢或失败)
-#   - 防火墙开了 8092 入站
 
 param(
     [switch]$Stop,
@@ -41,10 +40,7 @@ if ($Status) {
         Write-Host "✅ Demo 运行中 — PID $existingPid, 内存 ${memMB} MB" -ForegroundColor Green
         Write-Host "   日志: $LogPath"
         Write-Host "   端口: $Port"
-        $tsIp = (tailscale ip -4 2>$null) -split "`n" | Select-Object -First 1
-        if ($tsIp) {
-            Write-Host "   Tailscale URL: http://${tsIp}:${Port}" -ForegroundColor Cyan
-        }
+        Write-Host "   本机访问: http://localhost:${Port}" -ForegroundColor Cyan
     } else {
         Write-Host "❌ Demo 未运行" -ForegroundColor Yellow
     }
@@ -113,8 +109,5 @@ Write-Host "   日志: Get-Content $LogPath -Wait -Tail 30"
 Write-Host "   状态: .\launch.ps1 -Status"
 Write-Host "   停止: .\launch.ps1 -Stop"
 
-$tsIp = (tailscale ip -4 2>$null) -split "`n" | Select-Object -First 1
-if ($tsIp) {
-    Write-Host ""
-    Write-Host "🌐 同事访问:http://${tsIp}:${Port}" -ForegroundColor Cyan
-}
+Write-Host ""
+Write-Host "🌐 浏览器开:http://localhost:${Port}" -ForegroundColor Cyan
