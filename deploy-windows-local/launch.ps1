@@ -1,14 +1,19 @@
-# launch.ps1 — Windows 后台启动 / 停止 PDF Demo
+# launch.ps1 - Windows background start/stop for PDF Demo
+# Usage:
+#   .\launch.ps1          start (background, log to pdfdemo.log)
+#   .\launch.ps1 -Stop    stop
+#   .\launch.ps1 -Status  show process status
 #
-# 用法:
-#   .\launch.ps1          启动(后台 + 日志写到 pdfdemo.log)
-#   .\launch.ps1 -Stop    停止
-#   .\launch.ps1 -Status  看进程状态
+# Prereq:
+#   - pdfdemo.jar in same directory
+#   - Java 17+ installed (java -version works)
+#   - Windows Defender ExclusionPath added (otherwise startup is slow or fails)
+#   - PowerShell ExecutionPolicy allows scripts:
+#     Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 #
-# 前置:
-#   - 当前目录有 pdfdemo.jar
-#   - Java 17+ 已装 (java -version 能跑)
-#   - 已加 Windows Defender ExclusionPath(否则启动巨慢或失败)
+# Note: kept ASCII-only on purpose -- Windows PowerShell 5.x parses .ps1
+# files using the OS default codepage (GBK on zh-CN), and UTF-8 emoji/CJK
+# would corrupt string literals and crash parsing.
 
 param(
     [switch]$Stop,
@@ -26,7 +31,7 @@ function Get-DemoPid {
         $existingPid = Get-Content $PidFile -ErrorAction SilentlyContinue
         if ($existingPid) {
             $proc = Get-Process -Id $existingPid -ErrorAction SilentlyContinue
-            if ($proc) { return $existingPid }
+            if ($proc) { return [int]$existingPid }
         }
     }
     return $null
@@ -37,12 +42,12 @@ if ($Status) {
     if ($existingPid) {
         $proc = Get-Process -Id $existingPid
         $memMB = [math]::Round($proc.WorkingSet64 / 1MB, 1)
-        Write-Host "✅ Demo 运行中 — PID $existingPid, 内存 ${memMB} MB" -ForegroundColor Green
-        Write-Host "   日志: $LogPath"
-        Write-Host "   端口: $Port"
-        Write-Host "   本机访问: http://localhost:${Port}" -ForegroundColor Cyan
+        Write-Host "[OK] Demo running -- PID $existingPid, mem ${memMB} MB" -ForegroundColor Green
+        Write-Host "     Log: $LogPath"
+        Write-Host "     Port: $Port"
+        Write-Host "     URL: http://localhost:${Port}" -ForegroundColor Cyan
     } else {
-        Write-Host "❌ Demo 未运行" -ForegroundColor Yellow
+        Write-Host "[--] Demo not running" -ForegroundColor Yellow
     }
     exit 0
 }
@@ -50,64 +55,89 @@ if ($Status) {
 if ($Stop) {
     $existingPid = Get-DemoPid
     if ($existingPid) {
-        Write-Host "停止 PID $existingPid ..." -ForegroundColor Yellow
+        Write-Host "Stopping PID $existingPid ..." -ForegroundColor Yellow
         Stop-Process -Id $existingPid -Force
         Remove-Item $PidFile -ErrorAction SilentlyContinue
-        Write-Host "✅ 已停止" -ForegroundColor Green
+        Write-Host "[OK] Stopped" -ForegroundColor Green
     } else {
-        Write-Host "⚠️  没有运行中的 demo" -ForegroundColor Yellow
+        Write-Host "[--] No running demo" -ForegroundColor Yellow
     }
     exit 0
 }
 
-# 启动逻辑
+# Start logic
 $existingPid = Get-DemoPid
 if ($existingPid) {
-    Write-Host "⚠️  Demo 已在运行 — PID $existingPid" -ForegroundColor Yellow
-    Write-Host "    停止用: .\launch.ps1 -Stop"
+    Write-Host "[--] Demo already running -- PID $existingPid" -ForegroundColor Yellow
+    Write-Host "     To stop: .\launch.ps1 -Stop"
     exit 1
 }
 
 if (-not (Test-Path $JarPath)) {
-    Write-Host "❌ 找不到 jar: $JarPath" -ForegroundColor Red
-    Write-Host "   先运行: mvn clean package 或 scp 上传 jar"
+    Write-Host "[ERR] jar not found: $JarPath" -ForegroundColor Red
+    Write-Host "      Build first: mvn clean package -DskipTests"
+    Write-Host "      Or copy: copy ..\java\target\pdfdemo-1.0.0.jar pdfdemo.jar"
     exit 1
 }
 
-# 端口占用检查
-$portInUse = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue
+# Port-in-use check
+$portInUse = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
 if ($portInUse) {
     $occupyPid = $portInUse[0].OwningProcess
-    Write-Host "❌ 端口 $Port 已被 PID $occupyPid 占用" -ForegroundColor Red
-    Write-Host "   查看: Get-Process -Id $occupyPid"
+    Write-Host "[ERR] Port $Port already in use by PID $occupyPid" -ForegroundColor Red
+    Write-Host "      Inspect: Get-Process -Id $occupyPid"
     exit 1
 }
 
-Write-Host "启动 pdfdemo.jar 后台进程..." -ForegroundColor Cyan
-$proc = Start-Process -FilePath "java" `
-    -ArgumentList "-jar", $JarPath `
-    -RedirectStandardOutput $LogPath `
-    -RedirectStandardError "${LogPath}.err" `
-    -WorkingDirectory $PSScriptRoot `
-    -WindowStyle Hidden `
-    -PassThru
+Write-Host "Starting pdfdemo.jar in background ..." -ForegroundColor Cyan
 
-$proc.Id | Out-File -FilePath $PidFile -Encoding ASCII
+# Use WMI/CIM to spawn a process that is NOT a child of the current
+# PowerShell session. Without this, an SSH-launched run gets killed
+# when the SSH connection ends (Windows OpenSSH puts the whole tree
+# in a Job Object). Start-Process keeps the parent/child link too,
+# so we use Win32_Process::Create which detaches cleanly.
+$cmdLine = "java -jar `"$JarPath`" > `"$LogPath`" 2> `"${LogPath}.err`""
+$wrapped = "cmd.exe /c $cmdLine"
+$result = Invoke-CimMethod -ClassName Win32_Process -MethodName Create `
+    -Arguments @{ CommandLine = $wrapped; CurrentDirectory = $PSScriptRoot }
 
-# 等 5 秒看是否健康启动
+if ($result.ReturnValue -ne 0) {
+    Write-Host "[ERR] Win32_Process Create failed (code $($result.ReturnValue))" -ForegroundColor Red
+    exit 1
+}
+
+# $result.ProcessId is the cmd.exe wrapper PID, find the actual java child
+Start-Sleep -Seconds 2
+$javaProc = Get-CimInstance Win32_Process -Filter "ParentProcessId = $($result.ProcessId) AND Name = 'java.exe'" |
+            Select-Object -First 1
+if (-not $javaProc) {
+    # cmd.exe may have already exited if -PassThru was sync; java is its replacement or sibling
+    $javaProc = Get-CimInstance Win32_Process -Filter "Name = 'java.exe' AND CommandLine LIKE '%pdfdemo.jar%'" |
+                Sort-Object CreationDate -Descending | Select-Object -First 1
+}
+
+if (-not $javaProc) {
+    Write-Host "[ERR] java process not found after spawn -- check log:" -ForegroundColor Red
+    Write-Host "      Get-Content $LogPath -Tail 30"
+    exit 1
+}
+
+$javaPid = $javaProc.ProcessId
+$javaPid | Out-File -FilePath $PidFile -Encoding ASCII
+
+# Wait 5s and verify still running
 Start-Sleep -Seconds 5
-$check = Get-Process -Id $proc.Id -ErrorAction SilentlyContinue
+$check = Get-Process -Id $javaPid -ErrorAction SilentlyContinue
 if (-not $check) {
-    Write-Host "❌ 进程启动后立刻退出 — 看日志:" -ForegroundColor Red
-    Write-Host "   Get-Content $LogPath -Tail 30"
+    Write-Host "[ERR] Process exited right after start -- check log:" -ForegroundColor Red
+    Write-Host "      Get-Content $LogPath -Tail 30"
     Remove-Item $PidFile -ErrorAction SilentlyContinue
     exit 1
 }
 
-Write-Host "✅ PID $($proc.Id) 已启动" -ForegroundColor Green
-Write-Host "   日志: Get-Content $LogPath -Wait -Tail 30"
-Write-Host "   状态: .\launch.ps1 -Status"
-Write-Host "   停止: .\launch.ps1 -Stop"
-
+Write-Host "[OK] PID $javaPid started" -ForegroundColor Green
+Write-Host "     Log:    Get-Content $LogPath -Wait -Tail 30"
+Write-Host "     Status: .\launch.ps1 -Status"
+Write-Host "     Stop:   .\launch.ps1 -Stop"
 Write-Host ""
-Write-Host "🌐 浏览器开:http://localhost:${Port}" -ForegroundColor Cyan
+Write-Host "Browser: http://localhost:${Port}" -ForegroundColor Cyan

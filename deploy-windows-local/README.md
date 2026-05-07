@@ -32,6 +32,16 @@ mvn -version
 Add-MpPreference -ExclusionPath "C:\Users\$env:USERNAME\pdfdemo"
 ```
 
+### 4. ⚠️ PowerShell ExecutionPolicy 允许脚本(用 launch.ps1 才需要)
+
+默认 `Restricted` 不能跑 `.ps1` 文件。一次性放开当前用户:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+或单次绕过:`powershell -ExecutionPolicy Bypass -File .\launch.ps1`
+
 ---
 
 ## 编译 + 启动
