@@ -1,8 +1,13 @@
 # launch.ps1 - Windows background start/stop for PDF Demo
 # Usage:
-#   .\launch.ps1          start (background, log to pdfdemo.log)
-#   .\launch.ps1 -Stop    stop
-#   .\launch.ps1 -Status  show process status
+#   .\launch.ps1                       start on default port 8092
+#   .\launch.ps1 -Port 8093            start on custom port (PID/log files
+#                                      become pdfdemo-8093.pid / .log so
+#                                      multiple instances can coexist)
+#   .\launch.ps1 -Stop                 stop the 8092 instance
+#   .\launch.ps1 -Port 8093 -Stop      stop the 8093 instance
+#   .\launch.ps1 -Status               show 8092 status
+#   .\launch.ps1 -Port 8093 -Status    show 8093 status
 #
 # Prereq:
 #   - pdfdemo.jar in same directory
@@ -17,14 +22,22 @@
 
 param(
     [switch]$Stop,
-    [switch]$Status
+    [switch]$Status,
+    [int]$Port = 8092
 )
 
 $ErrorActionPreference = "Stop"
 $JarPath = Join-Path $PSScriptRoot "pdfdemo.jar"
-$LogPath = Join-Path $PSScriptRoot "pdfdemo.log"
-$PidFile = Join-Path $PSScriptRoot "pdfdemo.pid"
-$Port = 8092
+
+# When user keeps default port 8092, use legacy short filenames for back-compat;
+# any non-default port gets per-port PID/log so multiple instances coexist.
+if ($Port -eq 8092) {
+    $LogPath = Join-Path $PSScriptRoot "pdfdemo.log"
+    $PidFile = Join-Path $PSScriptRoot "pdfdemo.pid"
+} else {
+    $LogPath = Join-Path $PSScriptRoot "pdfdemo-${Port}.log"
+    $PidFile = Join-Path $PSScriptRoot "pdfdemo-${Port}.pid"
+}
 
 function Get-DemoPid {
     if (Test-Path $PidFile) {
@@ -96,7 +109,7 @@ Write-Host "Starting pdfdemo.jar in background ..." -ForegroundColor Cyan
 # when the SSH connection ends (Windows OpenSSH puts the whole tree
 # in a Job Object). Start-Process keeps the parent/child link too,
 # so we use Win32_Process::Create which detaches cleanly.
-$cmdLine = "java -jar `"$JarPath`" > `"$LogPath`" 2> `"${LogPath}.err`""
+$cmdLine = "java -Dserver.port=$Port -jar `"$JarPath`" > `"$LogPath`" 2> `"${LogPath}.err`""
 $wrapped = "cmd.exe /c $cmdLine"
 $result = Invoke-CimMethod -ClassName Win32_Process -MethodName Create `
     -Arguments @{ CommandLine = $wrapped; CurrentDirectory = $PSScriptRoot }
@@ -111,8 +124,10 @@ Start-Sleep -Seconds 2
 $javaProc = Get-CimInstance Win32_Process -Filter "ParentProcessId = $($result.ProcessId) AND Name = 'java.exe'" |
             Select-Object -First 1
 if (-not $javaProc) {
-    # cmd.exe may have already exited if -PassThru was sync; java is its replacement or sibling
-    $javaProc = Get-CimInstance Win32_Process -Filter "Name = 'java.exe' AND CommandLine LIKE '%pdfdemo.jar%'" |
+    # cmd.exe may have exited; find the most recent java with our port marker
+    $portMarker = "-Dserver.port=$Port"
+    $javaProc = Get-CimInstance Win32_Process -Filter "Name = 'java.exe'" |
+                Where-Object { $_.CommandLine -like "*$portMarker*" -and $_.CommandLine -like "*pdfdemo.jar*" } |
                 Sort-Object CreationDate -Descending | Select-Object -First 1
 }
 
